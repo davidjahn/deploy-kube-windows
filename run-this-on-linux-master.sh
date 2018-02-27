@@ -15,13 +15,13 @@ mv * ~/kube/
 
 # Install Linux Binaries
 wget -O kubernetes.tar.gz https://github.com/kubernetes/kubernetes/releases/download/v1.9.1/kubernetes.tar.gz
-tar -vxzf kubernetes.tar.gz 
-cd kubernetes/cluster 
+tar -vxzf kubernetes.tar.gz
+cd kubernetes/cluster
 # TODO
 # follow the prompts from this command, the defaults are generally fine:
 echo Y | ./get-kube-binaries.sh
 cd ../server
-tar -vxzf kubernetes-server-linux-amd64.tar.gz 
+tar -vxzf kubernetes-server-linux-amd64.tar.gz
 cd kubernetes/server/bin
 cp hyperkube kubectl ~/kube/bin/
 
@@ -67,8 +67,8 @@ sudo cp ~/.kube/config ~/kube/kubelet/
 
 # start kubeproxy
 cd ~/kube
-sudo ./start-kubeproxy.sh 192.168 > ~/kubeproxy.log 2>&1 &
+sudo -b nohup ./start-kubeproxy.sh 192.168 > ~/kubeproxy.log 2>&1
 
 # start kubelet
 cd ~/kube
-sudo ./start-kubelet.sh > ~/kubelet-log 2>&1 &
+sudo -b nohup ./start-kubelet.sh > ~/kubelet-log 2>&1
