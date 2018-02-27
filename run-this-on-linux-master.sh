@@ -1,4 +1,4 @@
-set -x
+set -e
 # From: https://github.com/MicrosoftDocs/Virtualization-Documentation/blob/live/virtualization/windowscontainers/kubernetes/creating-a-linux-master.md
 
 # Install basic dependencies
@@ -63,8 +63,15 @@ sudo cp ~/.kube/config ~/kube/kubelet/
 # TODO - we need to download this file in order to upload it to the windows node later
 
 
-## START TWO LONG RUNNING PROCESSES
+# Configure networking: host-gateway topology
+CLUSTER_PREFIX="192.168"
+sudo iptables -t nat -F
+sudo iptables -t nat -A POSTROUTING ! -d $CLUSTER_PREFIX.0.0/16 \
+              -m addrtype ! --dst-type LOCAL -j MASQUERADE
+sudo sysctl -w net.ipv4.ip_forward=1
+sudo route add -net $CLUSTER_PREFIX.0.0 netmask 255.255.0.0 dev ens4
 
+## START TWO LONG RUNNING PROCESSES
 # start kubeproxy
 cd ~/kube
 sudo -b nohup ./start-kubeproxy.sh 192.168 > ~/kubeproxy.log 2>&1

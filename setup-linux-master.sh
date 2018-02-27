@@ -1,12 +1,14 @@
-set -ex
+set -e
 scriptdir=$(dirname $0)
 masterVM=linux-master
 
 # Create the Linux master that will run the k8s control plane
 echo "creating linux master as vm name $masterVM ..."
 gcloud compute instances create "$masterVM" --image-project=ubuntu-os-cloud --image-family=ubuntu-1604-lts --zone=us-central1-c
-sleep 10
+sleep 20
+echo "copying setup script to linux master..."
 gcloud compute scp "$scriptdir/run-this-on-linux-master.sh" "$masterVM:~/run-this-on-linux-master.sh"
+echo "running setup script on linux master..."
 gcloud compute ssh "$masterVM" --command  'cd && ./run-this-on-linux-master.sh'
 echo "done!"
 
