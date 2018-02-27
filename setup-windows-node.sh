@@ -8,5 +8,10 @@ gcloud compute instances create "$winVM" --image-project=windows-cloud --image-f
 echo "done!"
 
 echo "now: copy config file to C:\k\ (RDP onto the machine and copy/paste!!),"
-echo "install docker (https://docs.microsoft.com/en-us/virtualization/windowscontainers/kubernetes/getting-started-kubernetes-windows), and"
-echo "run run-this-on-windows-node.ps1 on the machine"
+echo
+echo "then: install docker:"
+echo "Install-Module -Name DockerMsftProvider -Repository PSGallery -Force
+Install-Package -Name Docker -ProviderName DockerMsftProvider
+Restart-Computer -Force"
+echo
+echo "finally: run run-this-on-windows-node.ps1 on the machine"
