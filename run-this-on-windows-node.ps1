@@ -1,5 +1,7 @@
 param(
   [Parameter(mandatory=$true)]
+  [string]$networkTopology,
+  [Parameter(mandatory=$true)]
   [string]$kubeletToken,
   [Parameter(mandatory=$true)]
   [string]$kubeProxyToken,
@@ -10,10 +12,24 @@ param(
   [string]$clusterCIDR="10.200.0.0/16"
 )
 
+if (($networkTopology -ne "flannel" ) -and ($networkTopology -ne "host-gateway")) {
+  echo "The networkTopology must be 'flannel' or 'host-gateway'."
+  exit 1
+}
+
 $KubeDnsServiceIp = "10.100.200.1"
 $hostname = $(hostname)
 
+$startKubeletScript = ""
+$startKubeProxyScript = ""
+$kubeProxyConfig = "" # only for flannel
+$overlayConf = ""
+$flannelNetConfig = ""
+$startFlanneldLocalScript = ""
+$startFlanneldEtcdScript = ""
+
 # define a few strings for config files and scripts
+if ($networkTopology -eq "flannel") {
 $startKubeletScript = @"
 c:\k\kubelet.exe --hostname-override=$hostname --v=6 ``
     --pod-infra-container-image=kubeletwin/pause --resolv-conf="" ``
@@ -27,11 +43,87 @@ c:\k\kubelet.exe --hostname-override=$hostname --v=6 ``
     --tls-cert-file=c:\k\kubelet.pem ``
     --tls-private-key-file=c:\k\kubelet-key.pem
 "@
-
 $startKubeProxyScript = @"
 kube-proxy.exe --config C:\k\kubeproxy-config
 "@
+$kubeProxyConfig = @"
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+bindAddress: 0.0.0.0
+clientConnection:
+  acceptContentTypes: ""
+  burst: 10
+  contentType: application/vnd.kubernetes.protobuf
+  kubeconfig: "c:\\k\\proxy-kconfig"
+  qps: 5
+clusterCIDR: $clusterCIDR
+configSyncPeriod: 15m0s
+conntrack:
+  max: 0
+  maxPerCore: 32768
+  min: 131072
+  tcpCloseWaitTimeout: 1h0m0s
+  tcpEstablishedTimeout: 24h0m0s
+enableProfiling: false
+featureGates: ""
+healthzBindAddress: 0.0.0.0:10256
+hostnameOverride: windows-node
+ipvs:
+  minSyncPeriod: 0s
+  scheduler: ""
+  syncPeriod: 30s
+kind: KubeProxyConfiguration
+metricsBindAddress: 127.0.0.1:10249
+mode: kernelspace
+oomScoreAdj: -999
+portRange: ""
+resourceContainer: /kube-proxy
+udpTimeoutMilliseconds: 250ms
+"@
+$overlayConf = @"
+{
+  "name": "vxlan0",
+  "type": "flannel",
+  "delegate": {
+    "type": "overlay"
+  }
+}
+"@
+$flannelNetConfig = @"
+{
+  "Network": "$clusterCIDR",
+  "Backend": {
+    "name": "vxlan0",
+    "type": "vxlan",
+    "vni": 4096
+  }
+}
+"@
 
+#TODO SOMETIMES YOU NEED TO CHANGE WORKER IP TO BE EXTERNAL IP, NOT INTERNAL IP
+$startFlanneldLocalScript = @"
+c:\k\bin\flanneld.exe --kubeconfig-file=c:\k\config --iface=$workerIp --ip-masq=1 --kube-subnet-mgr=1
+"@
+
+#TODO: etcd-endpoint should be hostname of etcd endpoint (ends in cf.internal)
+# you must modify local windows etc/hosts file to point this domain to linux master node internal IP
+# other files scrape from linux worker node
+$startFlanneldEtcdScript = @"
+flanneld -etcd-endpoints=<%= etcd_endpoints %> ``
+    --etcd-certfile=C:\k\config\etcd-client.crt ``
+    --etcd-keyfile=C:\k\config\etcd-client.key ``
+    --etcd-cafile=C:\k\config\etcd-ca.crt
+"@
+
+}
+
+if ($networkTopology -eq "host-gateway") {
+  $startKubeProxyScript = @'
+$env:KUBE_NETWORK="l2bridge"
+C:\k\kube-proxy.exe --v=4 --proxy-mode=kernelspace --hostname-override=$(hostname) --kubeconfig=C:\k\config
+'@
+}
+
+## Kubeconfigs are the same regardless of network topology
 $kubeConfig = @"
 apiVersion: v1
 kind: Config
@@ -72,75 +164,6 @@ users:
     token: "$kubeProxyToken"
 "@
 
-$kubeProxyConfig = @"
-apiVersion: kubeproxy.config.k8s.io/v1alpha1
-bindAddress: 0.0.0.0
-clientConnection:
-  acceptContentTypes: ""
-  burst: 10
-  contentType: application/vnd.kubernetes.protobuf
-  kubeconfig: "c:\\k\\proxy-kconfig"
-  qps: 5
-clusterCIDR: $clusterCIDR
-configSyncPeriod: 15m0s
-conntrack:
-  max: 0
-  maxPerCore: 32768
-  min: 131072
-  tcpCloseWaitTimeout: 1h0m0s
-  tcpEstablishedTimeout: 24h0m0s
-enableProfiling: false
-featureGates: ""
-healthzBindAddress: 0.0.0.0:10256
-hostnameOverride: windows-node
-ipvs:
-  minSyncPeriod: 0s
-  scheduler: ""
-  syncPeriod: 30s
-kind: KubeProxyConfiguration
-metricsBindAddress: 127.0.0.1:10249
-mode: kernelspace
-oomScoreAdj: -999
-portRange: ""
-resourceContainer: /kube-proxy
-udpTimeoutMilliseconds: 250ms
-"@
-
-$overlayConf = @"
-{
-  "name": "vxlan0",
-  "type": "flannel",
-  "delegate": {
-    "type": "overlay"
-  }
-}
-"@
-
-$flannelNetConfig = @"
-{
-  "Network": "$clusterCIDR",
-  "Backend": {
-    "name": "vxlan0",
-    "type": "vxlan",
-    "vni": 4096
-  }
-}
-"@
-
-#TODO SOMETIMES YOU NEED TO CHANGE WORKER IP TO BE EXTERNAL IP, NOT INTERNAL IP
-$startFlanneldLocalScript = @"
-c:\k\bin\flanneld.exe --kubeconfig-file=c:\k\config --iface=$workerIp --ip-masq=1 --kube-subnet-mgr=1
-"@
-
-#TODO: etcd-endpoint should be hostname of etcd endpoint (ends in cf.internal)
-# you must modify local windows etc/hosts file to point this domain to linux master node internal IP
-# other files scrape from linux worker node
-$startFlanneldEtcdScript = @"
-flanneld -etcd-endpoints=<%= etcd_endpoints %> ``
-    --etcd-certfile=C:\k\config\etcd-client.crt ``
-    --etcd-keyfile=C:\k\config\etcd-client.key ``
-    --etcd-cafile=C:\k\config\etcd-ca.crt
-"@
 
 # set TLS version to be 1.2 (for github.com downloads)
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -151,9 +174,12 @@ Expand-Archive master.zip -DestinationPath master
 mkdir -Force C:/k/
 mv master/SDN-master/Kubernetes/windows/* C:/k/
 rm -recurse -force master,master.zip
+
+if ($networkTopology -eq "flannel") {
 # don't use the stupid networking we don't want to use
 rm C:\k\cni\wincni.exe
 rm C:\k\cni\config\l2bridge.conf
+}
 
 # create pause image
 docker pull microsoft/windowsservercore:1709
@@ -169,11 +195,15 @@ mv .\kubernetes\node\bin\*.exe C:\k\
 rm -recurse -force kubernetes,k.tar.gz
 # write out config files and start scripts
 $kubeConfig | Out-File -encoding UTF8 -filepath "C:\k\config"
-$kubeProxyConfig | Out-File -encoding UTF8 -filepath "C:\k\kubeproxy-config"
 $kubeProxyKubeConfig | Out-File -encoding UTF8 -filepath "C:\k\proxy-kconfig" # TODO don't know if utf8 is the right encoding
+if ($networkTopology -eq "flannel"){
+$kubeProxyConfig | Out-File -encoding UTF8 -filepath "C:\k\kubeproxy-config"
 $startKubeletScript | Out-File -filepath "C:\k\start-kubelet.ps1"
 $startKubeProxyScript | Out-File -filepath "C:\k\start-kubeproxy.ps1"
+}
 
+
+if ($networkTopology -eq "flannel"){
 # get exe files for cni plugin
 mkdir -force c:\k\cni\
 cd c:\k\cni\
@@ -196,6 +226,14 @@ $flannelNetConfig | Out-File -encoding ASCII -filepath "C:\etc\kube-flannel\net-
 $startFlanneldLocalScript | Out-File -filepath "C:\k\start-flanneld-local.ps1"
 
 
+# set env vars for flanneld
+$env:NODE_NAME=$hostname
+[Environment]::SetEnvironmentVariable("NODE_NAME", $hostname, [EnvironmentVariableTarget]::User)
+$env:KUBE_NETWORK="vxlan0"
+[Environment]::SetEnvironmentVariable("KUBE_NETWORK", "vxlan0", [EnvironmentVariableTarget]::User)
+}
+
+
 # add C:\k to system path
 $env:Path += ";C:\k"
 [Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\k", [EnvironmentVariableTarget]::Machine)
@@ -204,17 +242,18 @@ $env:Path += ";C:\k"
 $env:KUBECONFIG="C:\k\config"
 [Environment]::SetEnvironmentVariable("KUBECONFIG", "C:\k\config", [EnvironmentVariableTarget]::User)
 
-# set env vars for flanneld
-$env:NODE_NAME=$hostname
-[Environment]::SetEnvironmentVariable("NODE_NAME", $hostname, [EnvironmentVariableTarget]::User)
-$env:KUBE_NETWORK="vxlan0"
-[Environment]::SetEnvironmentVariable("KUBE_NETWORK", "vxlan0", [EnvironmentVariableTarget]::User)
 
 # run some debug output to see if we are setup correctly
 kubectl config view
 kubectl version
 
-echo "make three new powershell windows, go to C:\k\ and run these three processes:"
-echo "./start-kubelet.ps1"
-echo "./start-flanneld-local.ps1"
-echo "./start-kubeproxy.ps1"
+if ($networkTopology -eq "host-gateway") {
+  echo "transfer modified start-kubelet.ps1 into C:/k/"
+}
+
+echo "make a new powershell window for each of these commands and run one in each window (in the listed order):"
+echo "start-kubelet.ps1"
+if ($networkTopology -eq "flannel") {
+  echo "start-flanneld-local.ps1"
+}
+echo "start-kubeproxy.ps1"
