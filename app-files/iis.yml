@@ -1,0 +1,26 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: hello-iis
+  name: hello-iis
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: hello-iis
+      name: hello-iis
+    spec:
+      containers:
+      - name: iis
+        image: microsoft/iis:windowsservercore-1709
+        ports:
+        - name: "demo"
+          protocol: TCP
+          containerPort: 80
+          hostPort: 4445
+      nodeSelector:
+        beta.kubernetes.io/os: windows
+

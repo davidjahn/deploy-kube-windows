@@ -19,7 +19,7 @@ metadata:
     app: win-webserver
   name: win-webserver
 spec:
-  replicas: 2
+  replicas: 1
   template:
     metadata:
       labels:
@@ -37,7 +37,7 @@ spec:
         ports:
         - name: "demo"
           protocol: TCP
-          # hostPort: 4444
+          hostPort: 4444
           containerPort: 80
       nodeSelector:
         beta.kubernetes.io/os: windows
