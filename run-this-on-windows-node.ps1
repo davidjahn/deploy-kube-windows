@@ -66,7 +66,7 @@ conntrack:
 enableProfiling: false
 featureGates: ""
 healthzBindAddress: 0.0.0.0:10256
-hostnameOverride: windows-node
+hostnameOverride: $hostname
 ipvs:
   minSyncPeriod: 0s
   scheduler: ""

@@ -1,5 +1,5 @@
 Param(
-    $clusterCIDR="10.100.0.0/16"
+    $clusterCIDR="10.200.0.0/16"
 )
 
 ## TODO get these values and plug in the correct ones for PKS
@@ -196,7 +196,7 @@ if (-not $podCidrDiscovered)
 
 # startup the service
 ipmo C:\k\hns.psm1
-$hnsNetwork = Get-HnsNetworks | ? Name -EQ $NetworkMode.ToLower()
+$hnsNetwork = Get-HnsNetwork | ? Name -EQ $NetworkMode.ToLower()
 
 if (!$hnsNetwork)
 {
@@ -222,6 +222,6 @@ c:\k\kubelet.exe --hostname-override=$(hostname) --v=6 `
     --kubeconfig=c:\k\config --hairpin-mode=promiscuous-bridge `
     --image-pull-progress-deadline=20m --cgroups-per-qos=false `
     --enforce-node-allocatable="" `
-    --network-plugin=cni --cni-bin-dir="c:\k\cni" --cni-conf-dir "c:\k\cni\config"
-
-## TODO add tls stuff down here
+    --network-plugin=cni --cni-bin-dir="c:\k\cni" --cni-conf-dir "c:\k\cni\config" `
+    --tls-cert-file=c:\k\kubelet.pem `
+    --tls-private-key-file=c:\k\kubelet-key.pem
