@@ -1,0 +1,27 @@
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: nora
+  name: nora
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: nora
+      name: nora
+    spec:
+      containers:
+      - name: nora
+        image: nora3
+        imagePullPolicy: Never
+        ports:
+        - name: "demo"
+          protocol: TCP
+          containerPort: 80
+          hostPort: 4445
+      nodeSelector:
+        beta.kubernetes.io/os: windows
+
