@@ -108,10 +108,7 @@ c:\k\bin\flanneld.exe --kubeconfig-file=c:\k\config --iface=$workerIp --ip-masq=
 # you must modify local windows etc/hosts file to point this domain to linux master node internal IP
 # other files scrape from linux worker node
 $startFlanneldEtcdScript = @"
-flanneld -etcd-endpoints=<%= etcd_endpoints %> ``
-    --etcd-certfile=C:\k\config\etcd-client.crt ``
-    --etcd-keyfile=C:\k\config\etcd-client.key ``
-    --etcd-cafile=C:\k\config\etcd-ca.crt
+.\bin\flanneld.exe -v 1 --etcd-endpoints=https://master-0.etcd.cfcr.internal:4001 --etcd-certfile=C:\k\etcd\etcd-client.crt --etcd-keyfile=c:\k\etcd\etcd-client.key --etcd-cafile=C:\k\etcd\etcd-ca.crt --iface=$workerIp --ip-masq=1
 "@
 
 }
