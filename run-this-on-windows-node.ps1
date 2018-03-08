@@ -167,9 +167,11 @@ users:
 
 # set TLS version to be 1.2 (for github.com downloads)
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+# define downloading client
+$c = New-Object system.net.webclient
 
 # copy microsoft helper scripts
-curl -uri "https://github.com/Microsoft/SDN/archive/master.zip" -outfile master.zip
+$c.DownloadFile("https://github.com/Microsoft/SDN/archive/master.zip", $pwd.ToString() + "/master.zip")
 Expand-Archive master.zip -DestinationPath master
 mkdir -Force C:/k/
 mv master/SDN-master/Kubernetes/windows/* C:/k/
@@ -188,8 +190,8 @@ cd C:/k/
 docker build -t kubeletwin/pause .
 
 # get exe files for kubernetes windows
-curl -uri "https://github.com/cloudfoundry/bosh-agent/raw/master/integration/windows/fixtures/tar.exe" -outfile tar.exe
-curl -uri "https://storage.googleapis.com/kubernetes-release/release/v1.9.3/kubernetes-node-windows-amd64.tar.gz" -outfile k.tar.gz
+$c.DownloadFile("https://github.com/cloudfoundry/bosh-agent/raw/master/integration/windows/fixtures/tar.exe", $pwd.ToString() + "/tar.exe")
+$c.DownloadFile("https://storage.googleapis.com/kubernetes-release/release/v1.9.3/kubernetes-node-windows-amd64.tar.gz", $pwd.ToString() + "/k.tar.gz")
 .\tar.exe xf k.tar.gz
 mv .\kubernetes\node\bin\*.exe C:\k\
 rm -recurse -force kubernetes,k.tar.gz
@@ -207,9 +209,9 @@ if ($networkTopology -eq "flannel"){
 # get exe files for cni plugin
 mkdir -force c:\k\cni\
 cd c:\k\cni\
-curl -uri https://storage.googleapis.com/pksw/flannel.exe -outfile flannel.exe
-curl -uri https://storage.googleapis.com/pksw/host-local.exe -outfile host-local.exe
-curl -uri https://storage.googleapis.com/pksw/overlay.exe -outfile overlay.exe
+$c.DownloadFile("https://storage.googleapis.com/pksw/flannel.exe", $pwd.ToString() + "/flannel.exe")
+$c.DownloadFile("https://storage.googleapis.com/pksw/host-local.exe", $pwd.ToString() + "/host-local.exe")
+$c.DownloadFile("https://storage.googleapis.com/pksw/overlay.exe", $pwd.ToString() + "/overlay.exe")
 # write out cni config
 mkdir -force c:\k\cni\config
 $overlayConf | Out-File -encoding ASCII -filepath "C:\k\cni\config\overlay.conf"
@@ -218,7 +220,7 @@ $overlayConf | Out-File -encoding ASCII -filepath "C:\k\cni\config\overlay.conf"
 # get exe file for flanneld
 mkdir -force c:\k\bin\
 cd c:\k\bin\
-curl -uri https://storage.googleapis.com/pksw/flanneld.exe -outfile flanneld.exe
+$c.DownloadFile("https://storage.googleapis.com/pksw/flanneld.exe", $pwd.ToString() + "/flanneld.exe")
 # write out flanneld config & start script
 mkdir -Force c:\etc
 mkdir -force "c:\etc\kube-flannel"
